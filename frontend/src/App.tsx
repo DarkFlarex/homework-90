@@ -3,6 +3,7 @@ import './App.css';
 import { DrawPoint, IncomingDraw } from "./types";
 
 const App: React.FC = () => {
+    const [,setPixel] = useState<DrawPoint[]>([]);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const contextRef = useRef<CanvasRenderingContext2D | null>(null);
     const [isDrawing, setIsDrawing] = useState<boolean>(false);
@@ -28,15 +29,16 @@ const App: React.FC = () => {
         }
 
         ws.current.onmessage = (event) => {
-            const decodedMessage = JSON.parse(event.data) as IncomingDraw;
+            const decodedDraw = JSON.parse(event.data) as IncomingDraw;
 
-            if (decodedMessage.type === 'EXISTING_PIXEL') {
-                decodedMessage.payload.forEach((point: DrawPoint) => {
-                    contextRef.current?.beginPath();
-                    contextRef.current?.moveTo(point.offsetX, point.offsetY);
-                    contextRef.current?.lineTo(point.offsetX, point.offsetY);
-                    contextRef.current?.stroke();
+            if (decodedDraw.type === 'NEW_PIXEL') {
+                setPixel((prev) => {
+                    const newPixel = [...prev, ...decodedDraw.payload];
+                    drawPixels(newPixel);
+                    return newPixel;
                 });
+            } else if (decodedDraw.type === 'EXISTING_PIXEL') {
+                drawPixels(decodedDraw.payload);
             }
         }
 
@@ -44,6 +46,15 @@ const App: React.FC = () => {
             ws.current?.close();
         }
     }, []);
+
+    const drawPixels = (points: DrawPoint[]) => {
+        points.forEach((point: DrawPoint) => {
+            contextRef.current?.beginPath();
+            contextRef.current?.moveTo(point.offsetX, point.offsetY);
+            contextRef.current?.lineTo(point.offsetX, point.offsetY);
+            contextRef.current?.stroke();
+        });
+    };
 
     const startDrawing = (event: MouseEvent<HTMLCanvasElement>): void => {
         const { offsetX, offsetY } = event.nativeEvent;
